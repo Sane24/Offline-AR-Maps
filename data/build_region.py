@@ -42,31 +42,90 @@ OVERPASS = "https://overpass-api.de/api/interpreter"
 TERRARIUM = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
 UA = {"User-Agent": "offline-ar-maps-demo/0.1 (region pack builder; educational demo)"}
 
-REGION = {
-    "id": "joshua-tree",
-    "name": "Joshua Tree - Ryan Mountain & Boy Scout",
-    "blurb": "Rocky high desert in Joshua Tree National Park. Sparse signage, no cell coverage on most trails.",
-    # south, west, north, east
-    "bbox": (33.955, -116.305, 34.125, -116.055),
-    "routes": [
-        {
-            "id": "ryan-mountain",
-            "osm_name": "Ryan Mountain Trail",
-            "name": "Ryan Mountain Summit",
-            "blurb": "Steep granite staircase to a 360 degree summit view.",
-            "loop": False,
-            "start_near": (-116.1359, 34.0026),  # Park Blvd trailhead parking
-        },
-        {
-            "id": "boy-scout",
-            "osm_name": "Boy Scout Trail",
-            "name": "Boy Scout Trail",
-            "blurb": "Notoriously easy to lose where it crosses rocky washes.",
-            "loop": False,
-            "start_near": (-116.1857, 34.0412),  # southern trailhead on Park Blvd
-        },
-    ],
-}
+REGIONS = [
+    {
+        "id": "joshua-tree",
+        "name": "Joshua Tree - Ryan Mountain & Boy Scout",
+        "blurb": "Rocky high desert in Joshua Tree National Park. Sparse signage, no cell coverage on most trails.",
+        # south, west, north, east
+        "bbox": (33.955, -116.305, 34.125, -116.055),
+        "routes": [
+            {
+                "id": "ryan-mountain",
+                "osm_name": "Ryan Mountain Trail",
+                "name": "Ryan Mountain Summit",
+                "blurb": "Steep granite staircase to a 360 degree summit view.",
+                "loop": False,
+                "start_near": (-116.1359, 34.0026),  # Park Blvd trailhead parking
+            },
+            {
+                "id": "boy-scout",
+                "osm_name": "Boy Scout Trail",
+                "name": "Boy Scout Trail",
+                "blurb": "Notoriously easy to lose where it crosses rocky washes.",
+                "loop": False,
+                "start_near": (-116.1857, 34.0412),  # southern trailhead on Park Blvd
+            },
+        ],
+    },
+    {
+        "id": "berkeley-hills",
+        "name": "Berkeley - Campus & Hills",
+        "blurb": "Fire trails and stair-paths in the hills straight above the UC Berkeley campus.",
+        "bbox": (37.855, -122.285, 37.905, -122.215),
+        # cities: skip sidewalks and the residential street grid
+        "urban": True,
+        "palette": "hills",
+        "routes": [
+            {
+                "id": "stonewall",
+                "osm_name": "Stonewall-Panoramic Trail",
+                "name": "Stonewall-Panoramic",
+                "blurb": "Steep single-track from behind Memorial Stadium to sweeping bay views.",
+                "loop": False,
+                "start_near": (-122.2461, 37.8664),  # top of Panoramic Way
+            },
+            {
+                "id": "fire-trails",
+                "osm_name": ["Lower Jordan Fire Trail", "Upper Jordan Fire Trail"],
+                "name": "Jordan Fire Trails",
+                "blurb": "The classic fire-road climb through Strawberry Canyon above campus.",
+                "loop": False,
+                "start_near": (-122.2449, 37.8712),  # gate on Centennial Drive
+            },
+        ],
+    },
+    {
+        "id": "sf-lands-end",
+        "name": "San Francisco - Lands End & Presidio",
+        "blurb": "Coastal bluffs at the mouth of the Golden Gate, from Sutro Baths to the bridge.",
+        "bbox": (37.775, -122.515, 37.812, -122.44),
+        "urban": True,
+        "palette": "coastal",
+        # low coastal relief reads better with tighter contours
+        "contours": (10, 50),
+        # both trails are fragmented into many named ways in OSM, so route
+        # them over the walk graph between endpoints instead of name-stitching
+        "routes": [
+            {
+                "id": "lands-end",
+                "route_between": ((-122.5107, 37.7797), (-122.4940, 37.7864)),
+                "prefer_names": ["Coastal Trail"],
+                "name": "Lands End Coastal Trail",
+                "blurb": "Cliffside path over the Golden Gate strait, above the Sutro Baths ruins.",
+                "loop": False,
+            },
+            {
+                "id": "batteries-bluffs",
+                "route_between": ((-122.4787, 37.8043), (-122.4806, 37.7989), (-122.4832, 37.7930)),
+                "prefer_names": ["Batteries to Bluffs Trail"],
+                "name": "Batteries to Bluffs",
+                "blurb": "Stairs and bluffs between the Golden Gate batteries and Marshall's Beach.",
+                "loop": False,
+            },
+        ],
+    },
+]
 
 # ---------------------------------------------------------------- geo helpers
 
@@ -119,10 +178,21 @@ def overpass(query):
     raise RuntimeError("Overpass failed after retries")
 
 
-def fetch_osm(bbox):
+def fetch_osm(bbox, urban=False):
     s, w, n, e = bbox
     bb = f"({s},{w},{n},{e})"
-    q_ways = f"""
+    if urban:
+        # real paths plus arterial roads for context; no sidewalks, no street grid
+        q_ways = f"""
+[out:json][timeout:120];
+(
+  way["highway"~"^(path|footway|steps|track|bridleway|cycleway|pedestrian)$"]["footway"!~"^(sidewalk|crossing)$"]{bb};
+  way["highway"~"^(tertiary|secondary|primary)$"]{bb};
+);
+out geom;
+"""
+    else:
+        q_ways = f"""
 [out:json][timeout:120];
 (
   way["highway"~"^(path|footway|steps|track|bridleway|cycleway|unclassified|residential|service|tertiary|secondary|primary)$"]{bb};
@@ -554,13 +624,14 @@ def build_pois(pois_json, sampler, out_path):
 
 
 def stitch_route(ways, osm_name):
-    """Stitch all ways with a given name into one polyline (longest chain)."""
+    """Stitch all ways with the given name(s) into one polyline (longest chain)."""
+    names = [osm_name] if isinstance(osm_name, str) else list(osm_name)
     segs = []
     for e in ways:
-        if e.get("tags", {}).get("name") == osm_name:
+        if e.get("tags", {}).get("name") in names:
             segs.append([(g["lon"], g["lat"]) for g in e["geometry"]])
     if not segs:
-        raise RuntimeError(f"no ways named {osm_name}")
+        raise RuntimeError(f"no ways named {names}")
 
     def k(p):
         return (round(p[0], 6), round(p[1], 6))
@@ -600,21 +671,123 @@ def stitch_route(ways, osm_name):
     return chains[0]
 
 
+GRAPH_KINDS = {"path", "footway", "steps", "track", "bridleway", "pedestrian", "cycleway"}
+
+
+def graph_route(ways, pts, prefer_names=None):
+    """Shortest path over the walkable way network through 2+ lon/lat points.
+
+    For trails that OSM splits into many differently-named fragments,
+    name-stitching falls apart; routing over the graph always yields one
+    continuous line. Edges on ways in `prefer_names` are discounted so the
+    route hugs the intended trail instead of a shorter parallel path.
+    """
+    import heapq
+
+    prefer = set(prefer_names or [])
+
+    def key(p):
+        return (round(p[0], 6), round(p[1], 6))
+
+    adj = {}
+
+    def add(u, v, d, cost):
+        adj.setdefault(u, []).append((v, d, cost))
+        adj.setdefault(v, []).append((u, d, cost))
+
+    for e in ways:
+        tags = e.get("tags", {})
+        if tags.get("highway") not in GRAPH_KINDS:
+            continue
+        factor = 0.55 if tags.get("name") in prefer else 1.0
+        g = e["geometry"]
+        for p, q in zip(g, g[1:]):
+            u, v = key((p["lon"], p["lat"])), key((q["lon"], q["lat"]))
+            if u == v:
+                continue
+            d = haversine_m(u[0], u[1], v[0], v[1])
+            add(u, v, d, d * factor)
+    if not adj:
+        raise RuntimeError("empty walk graph")
+
+    # label connected components: endpoint snaps must land on the same one,
+    # or Dijkstra can never join them (urban path networks have many islands)
+    comp_id = {}
+    cid = 0
+    for start in adj:
+        if start in comp_id:
+            continue
+        comp_id[start] = cid
+        stack = [start]
+        while stack:
+            u = stack.pop()
+            for v, *_ in adj[u]:
+                if v not in comp_id:
+                    comp_id[v] = cid
+                    stack.append(v)
+        cid += 1
+
+    def candidates(pt, k=25):
+        return sorted(adj, key=lambda n: haversine_m(pt[0], pt[1], n[0], n[1]))[:k]
+
+    def leg(a, b):
+        best = None
+        for s in candidates(a):
+            for t in candidates(b):
+                if comp_id[s] != comp_id[t]:
+                    continue
+                cost = haversine_m(a[0], a[1], s[0], s[1]) + haversine_m(b[0], b[1], t[0], t[1])
+                if best is None or cost < best[0]:
+                    best = (cost, s, t)
+        if best is None:
+            raise RuntimeError("route endpoints land on disconnected walk networks")
+        src, dst = best[1], best[2]
+        dist = {src: 0.0}
+        prev = {}
+        pq = [(0.0, src)]
+        while pq:
+            d, u = heapq.heappop(pq)
+            if u == dst:
+                break
+            if d > dist.get(u, 1e18):
+                continue
+            for v, w, cost in adj[u]:
+                nd = d + cost
+                if nd < dist.get(v, 1e18):
+                    dist[v] = nd
+                    prev[v] = u
+                    heapq.heappush(pq, (nd, v))
+        if dst not in dist:
+            raise RuntimeError("no path between route endpoints")
+        path = [dst]
+        while path[-1] != src:
+            path.append(prev[path[-1]])
+        path.reverse()
+        return path
+
+    full = []
+    for a, b in zip(pts, pts[1:]):
+        part = leg(a, b)
+        full.extend(part if not full else part[1:])
+    length = sum(haversine_m(*full[i], *full[i + 1]) for i in range(len(full) - 1))
+    print(f"  graph route: {length/1000:.1f} km, {len(full)} nodes, via {len(pts)} points")
+    return [(p[0], p[1]) for p in full]
+
+
 def resample(coords, step=12.0):
     out = [coords[0]]
-    acc = 0.0
+    walked = 0.0
+    next_at = step
     for i in range(len(coords) - 1):
         a, b = coords[i], coords[i + 1]
         d = haversine_m(*a, *b)
-        if d < 1e-6:
+        if d < 1e-9:
             continue
-        while acc + step <= d:
-            acc += step
-            t = acc / d
+        while next_at <= walked + d:
+            t = (next_at - walked) / d
             out.append((a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t))
-        acc -= d
-        if acc < 0:
-            acc = 0.0
+            next_at += step
+        walked += d
     if out[-1] != coords[-1]:
         out.append(coords[-1])
     return out
@@ -683,11 +856,14 @@ def synth_waypoints(coords, cum, pois_fc, sampler):
 
 
 def build_route(spec, ways, pois_fc, region_dir, region_id):
-    print(f"Route: {spec['osm_name']}")
-    line = stitch_route(ways, spec["osm_name"])
-    start_near = spec.get("start_near")
-    if start_near and haversine_m(*line[-1], *start_near) < haversine_m(*line[0], *start_near):
-        line.reverse()
+    print(f"Route: {spec.get('osm_name') or spec['name']}")
+    if spec.get("route_between"):
+        line = graph_route(ways, spec["route_between"], spec.get("prefer_names"))
+    else:
+        line = stitch_route(ways, spec["osm_name"])
+        start_near = spec.get("start_near")
+        if start_near and haversine_m(*line[-1], *start_near) < haversine_m(*line[0], *start_near):
+            line.reverse()
     line = resample(line, 12.0)
     # corridor DEM at z14 for AR-quality ground
     lons = [p[0] for p in line]
@@ -765,13 +941,13 @@ def build_route(spec, ways, pois_fc, region_dir, region_id):
 # ----------------------------------------------------------------------- main
 
 
-def main():
-    region = REGION
+def build_region(region):
     rid = region["id"]
+    print(f"\n=== {rid} ===")
     region_dir = OUT_BASE / "regions" / rid
     region_dir.mkdir(parents=True, exist_ok=True)
 
-    ways_json, pois_json = fetch_osm(region["bbox"])
+    ways_json, pois_json = fetch_osm(region["bbox"], urban=region.get("urban", False))
 
     print("Fetching region DEM (z12)...")
     s, w, n, e = region["bbox"]
@@ -786,7 +962,8 @@ def main():
     hs_bytes = make_hillshade(grid, meta, region_dir / "hillshade.png")
 
     print("Contours ...")
-    ct_bytes = build_contours(grid, meta, region_dir / "contours.geojson")
+    minor, major = region.get("contours", (20, 100))
+    ct_bytes = build_contours(grid, meta, region_dir / "contours.geojson", minor=minor, major=major)
 
     print("Trails ...")
     way_els, tr_bytes = build_trails(ways_json, region_dir / "trails.geojson")
@@ -811,6 +988,7 @@ def main():
         "version": 1,
         "bbox": {"south": s, "west": w, "north": n, "east": e},
         "center": [round((w + e) / 2, 5), round((s + n) / 2, 5)],
+        "palette": region.get("palette", "desert"),
         "attribution": "Map data (c) OpenStreetMap contributors (ODbL). Elevation: Mapzen/AWS Terrain Tiles.",
         "files": files,
         "routes": routes_meta,
@@ -835,8 +1013,20 @@ def main():
         }
     )
     catalog_path.write_text(json.dumps(catalog, indent=1))
-    print(f"\nRegion pack complete: {total_bytes/1e6:.1f} MB total -> {region_dir}")
+    print(f"Region pack complete: {total_bytes/1e6:.1f} MB total -> {region_dir}")
+
+
+def main(argv):
+    """Build every region, or just the ids passed on the command line."""
+    targets = [r for r in REGIONS if not argv or r["id"] in argv]
+    unknown = [a for a in argv if a not in {r["id"] for r in REGIONS}]
+    if unknown or not targets:
+        print(f"unknown region ids {unknown}; known: {[r['id'] for r in REGIONS]}")
+        return 1
+    for region in targets:
+        build_region(region)
+    return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(sys.argv[1:]))

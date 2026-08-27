@@ -14,17 +14,73 @@
     "north": 34.125,
     "east": -116.055
    },
-   "bytes": 4814452,
+   "bytes": 4830809,
    "routes": [
     {
      "id": "ryan-mountain",
      "name": "Ryan Mountain Summit",
-     "km": 2.2
+     "km": 2.3
     },
     {
      "id": "boy-scout",
      "name": "Boy Scout Trail",
-     "km": 12.6
+     "km": 12.7
+    }
+   ]
+  },
+  {
+   "id": "berkeley-hills",
+   "name": "Berkeley - Campus & Hills",
+   "blurb": "Fire trails and stair-paths in the hills straight above the UC Berkeley campus.",
+   "center": [
+    -122.25,
+    37.88
+   ],
+   "bbox": {
+    "south": 37.855,
+    "west": -122.285,
+    "north": 37.905,
+    "east": -122.215
+   },
+   "bytes": 1903059,
+   "routes": [
+    {
+     "id": "stonewall",
+     "name": "Stonewall-Panoramic",
+     "km": 1.2
+    },
+    {
+     "id": "fire-trails",
+     "name": "Jordan Fire Trails",
+     "km": 6.0
+    }
+   ]
+  },
+  {
+   "id": "sf-lands-end",
+   "name": "San Francisco - Lands End & Presidio",
+   "blurb": "Coastal bluffs at the mouth of the Golden Gate, from Sutro Baths to the bridge.",
+   "center": [
+    -122.4775,
+    37.7935
+   ],
+   "bbox": {
+    "south": 37.775,
+    "west": -122.515,
+    "north": 37.812,
+    "east": -122.44
+   },
+   "bytes": 1344372,
+   "routes": [
+    {
+     "id": "lands-end",
+     "name": "Lands End Coastal Trail",
+     "km": 2.4
+    },
+    {
+     "id": "batteries-bluffs",
+     "name": "Batteries to Bluffs",
+     "km": 1.9
     }
    ]
   }
