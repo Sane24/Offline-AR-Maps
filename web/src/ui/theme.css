@@ -370,6 +370,7 @@ video.camera-feed {
   font-size: 12.5px;
   font-weight: 600;
   letter-spacing: 0.06em;
+  white-space: nowrap;
 }
 
 /* ------------------------------------------------------------------- HUD */
@@ -1242,6 +1243,42 @@ video.camera-feed {
 }
 
 @media (max-width: 600px) {
+  /* the regions sheet owns the bottom of a phone screen; the AR instrument
+     bar would collide with it, so it steps aside until the sheet closes */
+  .offline-panel {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    max-height: 62vh;
+    border-radius: 12px 12px 0 0;
+    border-bottom: none;
+  }
+
+  .app.sheet-open .hud-bottom,
+  .app.sheet-open .hint {
+    display: none;
+  }
+
+  .netstate-label {
+    display: none;
+  }
+
+  /* the instrument row must stay on one line: drop the status words and
+     tighten the controls so End never falls off the edge */
+  .nb-offline-label {
+    display: none;
+  }
+
+  .nb-foot {
+    flex-wrap: nowrap;
+    gap: 2px;
+  }
+
+  .ictl.wide {
+    padding: 0 7px;
+  }
+
   .wordmark span {
     display: none;
   }

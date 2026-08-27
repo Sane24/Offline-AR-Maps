@@ -50,14 +50,16 @@ function Shell() {
     )
   }
 
+  const sheetOpen = mode !== 'map' && regionsOpen
+
   return (
-    <div className="app">
+    <div className={`app${sheetOpen ? ' sheet-open' : ''}`}>
       {mode !== 'map' && <ARView />}
       {mode === 'map' && <MapView />}
       <StatusBar />
       {mode === 'ar' && <ARHud />}
       {mode === 'explore' && <RoutePanel />}
-      {mode !== 'map' && regionsOpen && <OfflinePanel onClose={() => setRegionsOpen(false)} />}
+      {sheetOpen && <OfflinePanel onClose={() => setRegionsOpen(false)} />}
       {!onboarded && <Onboarding />}
       {bootError && (
         <div className="boot-error">

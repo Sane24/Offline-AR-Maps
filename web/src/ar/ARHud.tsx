@@ -387,7 +387,9 @@ function NavBar() {
       <div className="nb-foot">
         <div className={`nb-offline ${regionReady ? '' : 'stream'}`}>
           <span className="dot" />
-          {regionReady ? 'Offline maps ready' : 'Streaming maps'}
+          <span className="nb-offline-label">
+            {regionReady ? 'Offline maps ready' : 'Streaming maps'}
+          </span>
         </div>
         <Controls />
         <button className="nb-end" onClick={stopNav}>

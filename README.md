@@ -38,7 +38,7 @@ camera, compass, and GPS take over. The guidance stack is identical.
 
 The demo tells one story in about a minute:
 
-1. Pick a region on the map and a route in the 3D explorer (or preview it as a flyover).
+1. The app opens in AR with the region sheet up: pick a region, or close it and walk.
 2. Download the region. A checklist shows maps, routes, terrain, and landmarks stored locally.
 3. Start navigation: the camera view shows the projected route, the next turn, and distance.
 4. Drag to look away. The HUD tells you how far off-heading you are and which way to turn.

@@ -51,7 +51,7 @@ export default function StatusBar() {
         )}
         <div className={`netstate ${state.cls}`} title="Whether map data is stored on this device">
           <span className="dot" />
-          {state.label}
+          <span className="netstate-label">{state.label}</span>
         </div>
       </div>
     </div>

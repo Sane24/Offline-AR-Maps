@@ -111,8 +111,10 @@ const storeImpl = create<TSState>()(
       booted: false,
       bootError: null,
       onboarded: localStorage.getItem('trailsight.onboarded') === '1',
-      mode: 'map',
-      regionsOpen: false,
+      // land in AR with the region sheet open: the guidance is the point of
+      // the product, and the sheet says where you are and what is offline
+      mode: 'ar',
+      regionsOpen: true,
       online: navigator.onLine,
       catalog: null,
       regionUI: {},
