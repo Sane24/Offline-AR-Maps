@@ -1,0 +1,32 @@
+{
+ "regions": [
+  {
+   "id": "joshua-tree",
+   "name": "Joshua Tree - Ryan Mountain & Boy Scout",
+   "blurb": "Rocky high desert in Joshua Tree National Park. Sparse signage, no cell coverage on most trails.",
+   "center": [
+    -116.18,
+    34.04
+   ],
+   "bbox": {
+    "south": 33.955,
+    "west": -116.305,
+    "north": 34.125,
+    "east": -116.055
+   },
+   "bytes": 4814452,
+   "routes": [
+    {
+     "id": "ryan-mountain",
+     "name": "Ryan Mountain Summit",
+     "km": 2.2
+    },
+    {
+     "id": "boy-scout",
+     "name": "Boy Scout Trail",
+     "km": 12.6
+    }
+   ]
+  }
+ ]
+}
