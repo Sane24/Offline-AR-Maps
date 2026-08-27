@@ -5,7 +5,7 @@
  * Every consumer (AR scene, HUD, nav engine) reads the same Pose.
  */
 import { angDiffDeg, clamp, lerpAngleDeg, wrap360, type Pose } from '../geo/geo'
-import { pointAtAlong, type PreparedRoute } from '../routing/route'
+import { pointAtAlong, snapToRoute, type PreparedRoute } from '../routing/route'
 import type { TerrainGrid } from '../terrain/terrain'
 
 export type PosSource = 'sim' | 'gps'
@@ -23,6 +23,10 @@ export interface PoseConfig {
 
 export const EYE_HEIGHT = 1.7
 const BASE_WALK_MPS = 1.35
+// free-walk speeds for held WASD keys (heading-relative)
+const FREE_FWD_MPS = 7
+const FREE_BACK_MPS = 5
+const FREE_STRAFE_MPS = 5
 
 export type PermState = 'unknown' | 'granted' | 'denied' | 'unsupported'
 
@@ -49,6 +53,8 @@ export class PoseController {
   alongM = 0
   /** lateral offset from the route in sim mode (demoes off-route states) */
   lateralM = 0
+  /** held movement keys: free walk relative to the current heading */
+  keys = { w: false, a: false, s: false, d: false }
   /** pointer-look state */
   lookYaw = 0
   lookPitch = 8
@@ -71,6 +77,10 @@ export class PoseController {
   private gpsWatch: number | null = null
   private gpsFix: { lon: number; lat: number; acc: number; speed: number } | null = null
 
+  clearKeys() {
+    this.keys.w = this.keys.a = this.keys.s = this.keys.d = false
+  }
+
   setRoute(route: PreparedRoute | null, terrain: TerrainGrid | null) {
     this.route = route
     this.terrain = terrain
@@ -78,6 +88,7 @@ export class PoseController {
     this.lateralM = 0
     this.lookYaw = 0
     this.lookPitch = 8
+    this.clearKeys()
     if (route) {
       const p = pointAtAlong(route, 0)
       this.pose.lon = p.lon
@@ -93,12 +104,44 @@ export class PoseController {
     this.update(0)
   }
 
+  /**
+   * Free walk while WASD is held: move in the direction the camera faces,
+   * then decompose the new position back into along-route distance plus a
+   * signed lateral offset, so nav progress and off-route detection follow
+   * wherever you wander. Returns the speed moved (0 when no key is held).
+   */
+  private applyFreeMove(dt: number, r: PreparedRoute): number {
+    const k = this.keys
+    const fwd = (k.w ? FREE_FWD_MPS : 0) - (k.s ? FREE_BACK_MPS : 0)
+    const strafe = ((k.d ? 1 : 0) - (k.a ? 1 : 0)) * FREE_STRAFE_MPS
+    if (fwd === 0 && strafe === 0) return 0
+    const h = (this.pose.heading * Math.PI) / 180
+    // east/north velocity: forward = (sin h, cos h), right = (cos h, -sin h)
+    const ve = Math.sin(h) * fwd + Math.cos(h) * strafe
+    const vn = Math.cos(h) * fwd - Math.sin(h) * strafe
+    const [x, y] = r.frame.toXY(this.pose.lon, this.pose.lat)
+    const nx = x + ve * dt
+    const ny = y + vn * dt
+    const [lon, lat] = r.frame.toLonLat(nx, ny)
+    const snap = snapToRoute(r, lon, lat)
+    const [sx, sy] = r.frame.toXY(snap.lon, snap.lat)
+    const b = (pointAtAlong(r, snap.alongM).bearing * Math.PI) / 180
+    // cross(route direction, offset): negative z means offset to the right
+    const crossZ = Math.sin(b) * (ny - sy) - Math.cos(b) * (nx - sx)
+    this.alongM = snap.alongM
+    this.lateralM = clamp(-crossZ, -120, 120)
+    return Math.hypot(ve, vn)
+  }
+
   /** advance the simulation / apply latest sensor values */
   update(dt: number) {
     const r = this.route
     this.simTime += dt
     if (this.cfg.posSource === 'sim' && r) {
-      if (this.cfg.playing) {
+      const freeSpeed = this.applyFreeMove(dt, r)
+      if (freeSpeed > 0) {
+        this.pose.speedMps = freeSpeed
+      } else if (this.cfg.playing) {
         const total = r.cum[r.cum.length - 1]
         this.alongM = Math.min(this.alongM + BASE_WALK_MPS * this.cfg.simSpeed * dt, total)
         this.pose.speedMps = this.alongM >= total ? 0 : BASE_WALK_MPS * this.cfg.simSpeed

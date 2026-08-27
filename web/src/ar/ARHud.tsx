@@ -426,19 +426,43 @@ export default function ARHud() {
   }, [])
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const st = useStore.getState()
+    const KEYMAP: Record<string, 'w' | 'a' | 's' | 'd'> = {
+      w: 'w',
+      a: 'a',
+      s: 's',
+      d: 'd',
+      arrowup: 'w',
+      arrowleft: 'a',
+      arrowdown: 's',
+      arrowright: 'd',
+    }
+    const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === ' ') {
         e.preventDefault()
+        const st = useStore.getState()
         st.setCfg({ playing: !st.cfg.playing })
-      } else if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') {
-        controller.stepLateral(-5)
-      } else if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') {
-        controller.stepLateral(5)
+        return
+      }
+      const k = KEYMAP[e.key.toLowerCase()]
+      if (k) {
+        controller.keys[k] = true
+        e.preventDefault()
       }
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    const onKeyUp = (e: KeyboardEvent) => {
+      const k = KEYMAP[e.key.toLowerCase()]
+      if (k) controller.keys[k] = false
+    }
+    const clear = () => controller.clearKeys()
+    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('keyup', onKeyUp)
+    window.addEventListener('blur', clear)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('keyup', onKeyUp)
+      window.removeEventListener('blur', clear)
+      clear()
+    }
   }, [])
 
   return (
@@ -450,7 +474,7 @@ export default function ARHud() {
       <Minimap />
       <EdgeArrows />
       {showHint && oriSource === 'pointer' && (
-        <div className="hint">Drag to look around · A / D drift off the trail</div>
+        <div className="hint">Drag to look around · WASD to walk · space auto-walks</div>
       )}
       <div className="hud-bottom">
         <NavBar />
