@@ -6,6 +6,7 @@ import ARView from '../ar/ARView'
 import ARHud from '../ar/ARHud'
 import MapView from '../maps/MapView'
 import RoutePanel from '../ui/RoutePanel'
+import OfflinePanel from '../offline/OfflinePanel'
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null as Error | null }
@@ -37,6 +38,8 @@ function Shell() {
   const bootError = useStore((s) => s.bootError)
   const onboarded = useStore((s) => s.onboarded)
   const mode = useStore((s) => s.mode)
+  const regionsOpen = useStore((s) => s.regionsOpen)
+  const setRegionsOpen = useStore((s) => s.setRegionsOpen)
   const toast = useStore((s) => s.toast)
 
   if (!booted) {
@@ -54,6 +57,7 @@ function Shell() {
       <StatusBar />
       {mode === 'ar' && <ARHud />}
       {mode === 'explore' && <RoutePanel />}
+      {mode !== 'map' && regionsOpen && <OfflinePanel onClose={() => setRegionsOpen(false)} />}
       {!onboarded && <Onboarding />}
       {bootError && (
         <div className="boot-error">

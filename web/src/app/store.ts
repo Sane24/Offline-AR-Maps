@@ -36,6 +36,8 @@ export interface TSState {
   bootError: string | null
   onboarded: boolean
   mode: Mode
+  /** the offline/region sheet, when opened outside the map tab */
+  regionsOpen: boolean
   online: boolean
   catalog: Catalog | null
   regionUI: Record<string, RegionUI>
@@ -58,6 +60,7 @@ export interface TSState {
   boot: () => Promise<void>
   finishOnboarding: () => void
   setMode: (m: Mode) => void
+  setRegionsOpen: (open: boolean) => void
   switchRegion: (id: string) => Promise<void>
   selectRoute: (id: string) => void
   startNav: () => void
@@ -108,7 +111,8 @@ const storeImpl = create<TSState>()(
       booted: false,
       bootError: null,
       onboarded: localStorage.getItem('trailsight.onboarded') === '1',
-      mode: 'explore',
+      mode: 'map',
+      regionsOpen: false,
       online: navigator.onLine,
       catalog: null,
       regionUI: {},
@@ -194,9 +198,14 @@ const storeImpl = create<TSState>()(
       },
 
       setMode: (mode) => {
-        set({ mode })
+        set({ mode, regionsOpen: false })
         if (mode !== 'ar') set({ cameraOn: false })
+        // a flyover previewed in the explorer must not leak into other modes:
+        // it hides the chevrons/beacon and fights the first-person camera
+        if (mode !== 'explore' && get().flythrough) set({ flythrough: false })
       },
+
+      setRegionsOpen: (open) => set({ regionsOpen: open }),
 
       switchRegion: async (id) => {
         const { region, catalog } = get()
@@ -204,7 +213,7 @@ const storeImpl = create<TSState>()(
         try {
           const next = await loadRegion(id)
           localStorage.setItem('trailsight.region', id)
-          set({ region: next, suggestion: null, navigating: false })
+          set({ region: next, suggestion: null, navigating: false, regionsOpen: false })
           applyRoute(next.manifest.routes[0]?.id ?? null)
           const name = (catalog?.regions.find((r) => r.id === id)?.name ?? id).split(' - ')[0]
           get().setToast(`Opened ${name}`)

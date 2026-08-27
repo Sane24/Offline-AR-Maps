@@ -90,8 +90,35 @@ export default function MapView() {
     })
 
     map.on('click', (e) => {
+      // markers first: tapping the destination or trailhead names it instead
+      // of rerouting there
+      const hits = map.queryRenderedFeatures(
+        [
+          [e.point.x - 8, e.point.y - 8],
+          [e.point.x + 8, e.point.y + 8],
+        ],
+        { layers: ['wp-arrive', 'wp-start'] },
+      )
+      if (hits.length > 0) {
+        const f = hits[0]
+        const kind = f.properties?.kind as string
+        const name = (f.properties?.name as string) || (kind === 'start' ? 'Trailhead' : 'Destination')
+        const label = kind === 'arrive' ? 'Destination' : 'Trailhead'
+        const geom = f.geometry as Point
+        new maplibregl.Popup({ closeButton: false, offset: 12 })
+          .setLngLat(geom.coordinates as [number, number])
+          .setHTML(
+            `<div class="wp-pop"><span>${label}</span><b>${name.replace(/</g, '&lt;')}</b></div>`,
+          )
+          .addTo(map)
+        return
+      }
       routeToPoint([e.lngLat.lng, e.lngLat.lat])
     })
+    for (const layer of ['wp-arrive', 'wp-start']) {
+      map.on('mouseenter', layer, () => (map.getCanvas().style.cursor = 'pointer'))
+      map.on('mouseleave', layer, () => (map.getCanvas().style.cursor = ''))
+    }
 
     // live user + offroute overlays
     const timer = setInterval(() => {

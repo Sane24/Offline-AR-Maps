@@ -36,6 +36,7 @@ export function waypointFC(route: RouteData | null): FeatureCollection {
       type: 'Feature',
       properties: {
         kind: w.kind,
+        name: w.kind === 'arrive' || w.kind === 'start' ? route.name : (w.name ?? ''),
         maneuver: ['bear', 'turn', 'switchback'].includes(w.kind) ? 1 : 0,
       },
       geometry: {

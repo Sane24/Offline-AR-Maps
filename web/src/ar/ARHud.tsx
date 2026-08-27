@@ -156,6 +156,9 @@ function GuidanceReadout() {
 
 function Minimap() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [big, setBig] = useState(false)
+  const bigRef = useRef(big)
+  bigRef.current = big
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -176,7 +179,8 @@ function Minimap() {
       ctx.clearRect(0, 0, w, h)
       const cx = w / 2
       const cy = h / 2
-      const RANGE = 320 // meters shown from center to edge
+      // meters from center to edge: expanded shows the wider picture
+      const RANGE = bigRef.current ? 900 : 320
       const scale = Math.min(w, h) / 2 / RANGE
       const [ux, uy] = prepared.frame.toXY(st.pose.lon, st.pose.lat)
       const rot = (-st.pose.heading * Math.PI) / 180
@@ -256,9 +260,13 @@ function Minimap() {
   }, [])
 
   return (
-    <div className="minimap">
+    <button
+      className={`minimap ${big ? 'big' : ''}`}
+      onClick={() => setBig(!big)}
+      title={big ? 'Shrink the overview' : 'Expand the overview'}
+    >
       <canvas ref={canvasRef} />
-    </div>
+    </button>
   )
 }
 

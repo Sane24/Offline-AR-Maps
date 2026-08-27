@@ -6,7 +6,7 @@ import { fmtBytes } from '../ui/format'
 /** What a saved region pack actually contains, in user terms. */
 const LAYERS = ['Maps', 'Routes', 'Terrain', 'Landmarks']
 
-export default function OfflinePanel() {
+export default function OfflinePanel({ onClose }: { onClose?: () => void } = {}) {
   const catalog = useStore((s) => s.catalog)
   const regionUI = useStore((s) => s.regionUI)
   const suggestion = useStore((s) => s.suggestion)
@@ -31,6 +31,11 @@ export default function OfflinePanel() {
         <button className="btn small quiet" onClick={() => suggestNearMe(true)}>
           Find nearby
         </button>
+        {onClose && (
+          <button className="op-close" onClick={onClose} title="Close">
+            ×
+          </button>
+        )}
       </div>
       <div className="op-body">
         {suggestion && (

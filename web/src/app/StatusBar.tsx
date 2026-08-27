@@ -4,13 +4,15 @@ import { Logo } from '../ui/icons'
 
 const MODES: { id: Mode; label: string }[] = [
   { id: 'map', label: 'Map' },
-  { id: 'explore', label: '3D' },
   { id: 'ar', label: 'AR' },
+  { id: 'explore', label: '3D' },
 ]
 
 export default function StatusBar() {
   const mode = useStore((s) => s.mode)
   const setMode = useStore((s) => s.setMode)
+  const regionsOpen = useStore((s) => s.regionsOpen)
+  const setRegionsOpen = useStore((s) => s.setRegionsOpen)
   const online = useStore((s) => s.online)
   const regionReady = useStore((s) => {
     const id = s.region?.manifest.id
@@ -38,9 +40,19 @@ export default function StatusBar() {
           </button>
         ))}
       </div>
-      <div className={`netstate ${state.cls}`} title="Whether map data is stored on this device">
-        <span className="dot" />
-        {state.label}
+      <div className="topbar-right">
+        {mode !== 'map' && (
+          <button
+            className={`topbar-regions ${regionsOpen ? 'on' : ''}`}
+            onClick={() => setRegionsOpen(!regionsOpen)}
+          >
+            Regions
+          </button>
+        )}
+        <div className={`netstate ${state.cls}`} title="Whether map data is stored on this device">
+          <span className="dot" />
+          {state.label}
+        </div>
       </div>
     </div>
   )
