@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { useStore } from '../app/store'
-import { buildTerrainGeometry, makeSky, seededRng } from './three-helpers'
+import { buildTerrainGeometry, makeSky, seededRng, TERRAIN_PALETTES, type TerrainPalette } from './three-helpers'
 import { LocalFrame } from '../geo/geo'
 
 const FOG_COLOR = new THREE.Color('#d8cfba')
@@ -19,8 +19,10 @@ const FOG_COLOR = new THREE.Color('#d8cfba')
 export default function SimWorld() {
   const patch = useStore((s) => s.patch)
   const regionGrid = useStore((s) => s.region?.terrain ?? null)
+  const paletteRaw = useStore((s) => s.region?.manifest.palette)
   const prepared = useStore((s) => s.prepared)
   const scene = useThree((s) => s.scene)
+  const palette: TerrainPalette = paletteRaw && paletteRaw in TERRAIN_PALETTES ? (paletteRaw as TerrainPalette) : 'desert'
 
   const world = useMemo(() => {
     if (!patch || !prepared) return null
@@ -46,7 +48,7 @@ export default function SimWorld() {
 
     // near terrain: the high-res corridor around the route
     const near = new THREE.Mesh(
-      buildTerrainGeometry(patch, frame, 340),
+      buildTerrainGeometry(patch, frame, 340, palette),
       new THREE.MeshLambertMaterial({ vertexColors: true }),
     )
     near.name = 'terrain-near'
@@ -55,7 +57,7 @@ export default function SimWorld() {
     // far terrain: the whole region, for orbit and flyover framing
     if (regionGrid && regionGrid !== patch) {
       const far = new THREE.Mesh(
-        buildTerrainGeometry(regionGrid, frame, 340),
+        buildTerrainGeometry(regionGrid, frame, 340, palette),
         new THREE.MeshLambertMaterial({ vertexColors: true }),
       )
       far.name = 'terrain-far'
@@ -63,11 +65,22 @@ export default function SimWorld() {
       group.add(far)
     }
 
+    // sea and bay: a still water plane just above the DEM's zero level
+    if (palette !== 'desert') {
+      const water = new THREE.Mesh(
+        new THREE.CircleGeometry(30000, 48),
+        new THREE.MeshLambertMaterial({ color: '#5d7f92', transparent: true, opacity: 0.96 }),
+      )
+      water.rotation.x = -Math.PI / 2
+      water.position.y = 0.45
+      group.add(water)
+    }
+
     // distant ground plane so terrain edges fade into haze instead of sky
     const lowest = Math.min(patch.range[0], regionGrid?.range[0] ?? Infinity)
     const ground = new THREE.Mesh(
       new THREE.CircleGeometry(40000, 48),
-      new THREE.MeshLambertMaterial({ color: '#b6a37d' }),
+      new THREE.MeshLambertMaterial({ color: TERRAIN_PALETTES[palette].low }),
     )
     ground.rotation.x = -Math.PI / 2
     ground.position.y = lowest - 4
@@ -77,7 +90,7 @@ export default function SimWorld() {
     const rng = seededRng(97531)
     const rockGeo = new THREE.DodecahedronGeometry(1, 0)
     const rockMat = new THREE.MeshLambertMaterial({ flatShading: true })
-    const COUNT = 550
+    const COUNT = palette === 'desert' ? 550 : 200
     const rocks = new THREE.InstancedMesh(rockGeo, rockMat, COUNT)
     const m = new THREE.Matrix4()
     const q = new THREE.Quaternion()
@@ -124,7 +137,7 @@ export default function SimWorld() {
     group.add(rocks)
 
     return group
-  }, [patch, regionGrid, prepared])
+  }, [patch, regionGrid, prepared, palette])
 
   const mode = useStore((s) => s.mode)
   const flythrough = useStore((s) => s.flythrough)

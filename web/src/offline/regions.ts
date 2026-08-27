@@ -43,6 +43,8 @@ export interface RegionManifest {
   bbox: { south: number; west: number; north: number; east: number }
   center: LonLat
   attribution: string
+  /** simulated-world ground colors: desert (default) | hills | coastal */
+  palette?: string
   files: Record<string, { path: string; bytes: number } & Record<string, unknown>>
   routes: RouteMeta[]
   bytes: number

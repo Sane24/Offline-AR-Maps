@@ -18,10 +18,13 @@ labels float where the landmarks actually are, and if you drift off the trail an
 points you back to it. Everything (maps, elevation, routes, landmarks) is stored on the device,
 so it keeps working with the network fully off.
 
-The demo region is Joshua Tree National Park: two real trails (Ryan Mountain Summit and the
-notoriously easy-to-lose Boy Scout Trail), built from real OSM and elevation data. On a laptop,
-a simulated walk moves you through the terrain and a rendered desert stands in for the camera;
-on a phone, the live camera, compass, and GPS take over. The guidance stack is identical.
+Three demo regions ship in the app, all built from real OSM and elevation data: Joshua Tree
+National Park (Ryan Mountain and the notoriously easy-to-lose Boy Scout Trail), the Berkeley
+hills above the UC campus (Stonewall-Panoramic and the Jordan fire trails), and San Francisco's
+Lands End and Presidio coast. On a laptop, a simulated walk moves you through the terrain and a
+rendered stand-in world takes the camera's place, colored to match each region: high desert,
+golden East Bay grass, or coastal bluffs with the Pacific behind them. On a phone, the live
+camera, compass, and GPS take over. The guidance stack is identical.
 
 ## Demo
 
@@ -35,11 +38,12 @@ on a phone, the live camera, compass, and GPS take over. The guidance stack is i
 
 The demo tells one story in about a minute:
 
-1. Pick a route in the 3D explorer (or preview it as a flyover).
+1. Pick a region and a route in the 3D explorer (or preview it as a flyover).
 2. Download the region. A checklist shows maps, routes, terrain, and landmarks stored locally.
 3. Start navigation: the camera view shows the projected route, the next turn, and distance.
 4. Drag to look away. The HUD tells you how far off-heading you are and which way to turn.
-5. Press `A`/`D` to drift off the trail. Off-route detection kicks in with a rejoin line.
+5. Walk freely with `WASD` (heading-relative, like a game). Wander off the trail and
+   off-route detection kicks in with a rejoin line; `space` toggles the hands-free auto walk.
 6. Go offline (airplane mode or DevTools). Navigation, rerouting, and the map keep working.
 
 ## Key features
@@ -58,6 +62,8 @@ The demo tells one story in about a minute:
   a one-tap compass alignment, and a simulated-walk fallback so the demo works anywhere
 - **Elevation everywhere:** climb remaining, elevation profile with live progress, hiking ETA
   that accounts for ascent, line-of-sight fading for landmark labels
+- **Three switchable regions:** desert, hills, and coast, each a self-contained pack with its
+  own simulated-world palette (Lands End even gets the Pacific)
 
 ## How it works
 
@@ -65,7 +71,7 @@ The demo tells one story in about a minute:
         OpenStreetMap (Overpass)      AWS/Mapzen Terrain Tiles
                   |                             |
                   v                             v
-      data/build_region.py: stitch + resample routes, synthesize
+      data/build_region.py: stitch or graph-route trails, resample, synthesize
       turn-by-turn waypoints, contours (marching squares), hillshade,
       int16 DEM grids, per-route high-res corridors
                   |
@@ -116,7 +122,7 @@ A few decisions worth calling out:
 
 - **The nav engine is pure.** `computeNav(route, pose, prev) -> NavState` runs every tick;
   AR, HUD, and map all render from the same result, so the views can never disagree. It is
-  unit-tested (23 tests) together with the geometry, graph, and terrain modules.
+  unit-tested (26 tests) together with the geometry, graph, terrain, and free-walk modules.
 - **AR anchoring is ENU-based.** The world lives in a local east-north-up frame anchored at
   the route start. Position + heading place the camera; content stays put. This works in
   backcountry where visual-positioning coverage doesn't exist.
@@ -168,6 +174,11 @@ directory; the web app registers the PMTiles protocol.
 - **Geographic → AR space.** Route coordinates become meters in a local ENU frame; elevation
   comes from a decoded int16 DEM sampled bilinearly (mercator-spaced rows), so chevrons
   actually sit on the ground instead of floating.
+- **Trails that OSM shatters.** Famous trails are often dozens of differently-named way
+  fragments (Batteries to Bluffs is 9 disconnected chains under one name). The pipeline can
+  route over the walk graph between endpoints instead, with name-weighted edges and via
+  points to pin the scenic line, and a connected-component check so endpoints never snap to
+  isolated path islands.
 - **Off-route that doesn't flap.** Perpendicular distance to a polyline with enter/exit
   hysteresis (35 m / 18 m), plus a rejoin point projected slightly ahead so you're guided
   forward, not backward.
@@ -181,17 +192,18 @@ directory; the web app registers the PMTiles protocol.
 
 ## Rebuilding the data (optional)
 
-The generated Joshua Tree pack (~4.6 MB) is committed so the demo runs immediately. To change
-regions or refresh data:
+The generated packs (~8 MB across three regions) are committed so the demo runs immediately.
+To change regions or refresh data:
 
 ```bash
 pip3 install requests pillow numpy
-python3 data/build_region.py     # ~2 min; Overpass + tile fetches cached in data/cache
-python3 data/make_icons.py       # regenerates PWA icons
+python3 data/build_region.py                 # all regions; fetches cached in data/cache
+python3 data/build_region.py sf-lands-end    # or just one
+python3 data/make_icons.py                   # regenerates PWA icons
 ```
 
-Edit the `REGION` dict at the top of `build_region.py`: bbox, OSM trail names, preferred
-trailheads.
+Add to the `REGIONS` list at the top of `build_region.py`: a bbox plus routes defined either
+by OSM trail names or by `route_between` coordinates for graph-routed lines.
 
 ## iOS app
 

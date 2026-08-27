@@ -58,6 +58,7 @@ export interface TSState {
   boot: () => Promise<void>
   finishOnboarding: () => void
   setMode: (m: Mode) => void
+  switchRegion: (id: string) => Promise<void>
   selectRoute: (id: string) => void
   startNav: () => void
   stopNav: () => void
@@ -139,7 +140,8 @@ const storeImpl = create<TSState>()(
             regionUI[r.id] = { state: isDownloaded(r.id) ? 'ready' : 'none', pct: 0 }
           }
           set({ catalog, regionUI })
-          const first = catalog.regions[0]
+          const savedId = localStorage.getItem('trailsight.region')
+          const first = catalog.regions.find((r) => r.id === savedId) ?? catalog.regions[0]
           if (first) {
             const region = await loadRegion(first.id)
             set({ region })
@@ -194,6 +196,22 @@ const storeImpl = create<TSState>()(
       setMode: (mode) => {
         set({ mode })
         if (mode !== 'ar') set({ cameraOn: false })
+      },
+
+      switchRegion: async (id) => {
+        const { region, catalog } = get()
+        if (region?.manifest.id === id) return
+        try {
+          const next = await loadRegion(id)
+          localStorage.setItem('trailsight.region', id)
+          set({ region: next, suggestion: null, navigating: false })
+          applyRoute(next.manifest.routes[0]?.id ?? null)
+          const name = (catalog?.regions.find((r) => r.id === id)?.name ?? id).split(' - ')[0]
+          get().setToast(`Opened ${name}`)
+        } catch (err) {
+          console.error(err)
+          get().setToast('Could not open this region — go online once, or download it first.')
+        }
       },
 
       selectRoute: (id) => applyRoute(id),

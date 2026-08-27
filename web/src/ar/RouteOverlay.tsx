@@ -264,8 +264,10 @@ function Beacon() {
       holder.add(sp)
     }
     if (labelHolder.current) {
-      // roughly constant on-screen size
+      // roughly constant on-screen size; close in, the HUD instruction
+      // already says it, so drop the floating label instead of shouting twice
       const dist = next.distM
+      labelHolder.current.visible = dist > 25
       const s = Math.min(16, Math.max(2.6, dist * 0.055))
       labelHolder.current.scale.setScalar(s)
       labelHolder.current.position.y = 6.5 + s * 0.35

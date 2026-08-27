@@ -816,6 +816,28 @@ video.camera-feed {
   font-weight: 600;
 }
 
+.region-entry + .region-entry {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.region-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.region-head > div:first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.region-head .current {
+  flex: none;
+  color: var(--orange-bright);
+  padding-top: 4px;
+}
+
 .region-name {
   font-family: var(--font-display);
   font-size: 18px;

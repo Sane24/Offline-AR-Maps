@@ -101,11 +101,35 @@ export function makeLabelSprite(title: string, opts: LabelOpts = {}): THREE.Spri
 
 /* ------------------------------------------------------ terrain geometry */
 
-const COL_LOW = new THREE.Color('#b39a6f') // sandy wash
-const COL_MID = new THREE.Color('#96805f') // desert soil
-const COL_ROCK = new THREE.Color('#8a7a68') // granite slopes
-const COL_HIGH = new THREE.Color('#a89684') // pale summit granite
-const COL_SCRUB = new THREE.Color('#6f7a4e') // scattered scrub tint
+/** ground color ramps for the simulated world, per region character */
+export const TERRAIN_PALETTES = {
+  desert: {
+    low: '#b39a6f', // sandy wash
+    mid: '#96805f', // desert soil
+    rock: '#8a7a68', // granite slopes
+    high: '#a89684', // pale summit granite
+    scrub: '#6f7a4e', // scattered scrub tint
+    scrubChance: 0.14,
+  },
+  hills: {
+    low: '#a89c60', // dry summer grass
+    mid: '#948b4f', // golden hillside
+    rock: '#7d7a52', // serpentine outcrop
+    high: '#a49a62', // ridgeline grass
+    scrub: '#46512f', // oak and eucalyptus stands
+    scrubChance: 0.3,
+  },
+  coastal: {
+    low: '#b3a67c', // beach sand
+    mid: '#98916a', // bluff scrub
+    rock: '#857c64', // sea cliffs
+    high: '#93906c', // headland grass
+    scrub: '#4f5f3d', // cypress stands
+    scrubChance: 0.24,
+  },
+} as const
+
+export type TerrainPalette = keyof typeof TERRAIN_PALETTES
 
 /**
  * Terrain mesh for the simulated world, in the route's local frame:
@@ -115,6 +139,7 @@ export function buildTerrainGeometry(
   grid: TerrainGrid,
   frame: LocalFrame,
   maxVerts = 240,
+  palette: TerrainPalette = 'desert',
 ): THREE.BufferGeometry {
   const [wm0, ym0] = frame.toXY(grid.west, grid.south)
   const [wm1, ym1] = frame.toXY(grid.east, grid.north)
@@ -125,6 +150,12 @@ export function buildTerrainGeometry(
   const rng = seededRng(1234567)
   const [lo, hi] = grid.range
   const tmp = new THREE.Color()
+  const pal = TERRAIN_PALETTES[palette]
+  const COL_LOW = new THREE.Color(pal.low)
+  const COL_MID = new THREE.Color(pal.mid)
+  const COL_ROCK = new THREE.Color(pal.rock)
+  const COL_HIGH = new THREE.Color(pal.high)
+  const COL_SCRUB = new THREE.Color(pal.scrub)
 
   for (let j = 0; j < ny; j++) {
     for (let i = 0; i < nx; i++) {
@@ -147,7 +178,7 @@ export function buildTerrainGeometry(
       else if (t < 0.6) tmp.copy(COL_MID).lerp(COL_ROCK, (t - 0.25) / 0.35)
       else tmp.copy(COL_ROCK).lerp(COL_HIGH, (t - 0.6) / 0.4)
       const n = rng()
-      if (n > 0.86 && t < 0.5) tmp.lerp(COL_SCRUB, 0.35)
+      if (n > 1 - pal.scrubChance && t < 0.55) tmp.lerp(COL_SCRUB, 0.4)
       const v = 0.92 + rng() * 0.16
       col[k] = tmp.r * v
       col[k + 1] = tmp.g * v

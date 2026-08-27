@@ -11,9 +11,11 @@ export default function OfflinePanel() {
   const regionUI = useStore((s) => s.regionUI)
   const suggestion = useStore((s) => s.suggestion)
   const online = useStore((s) => s.online)
+  const activeId = useStore((s) => s.region?.manifest.id)
   const download = useStore((s) => s.download)
   const removeDownload = useStore((s) => s.removeDownload)
   const suggestNearMe = useStore((s) => s.suggestNearMe)
+  const switchRegion = useStore((s) => s.switchRegion)
   const [storage, setStorage] = useState<{ usage: number; quota: number } | null>(null)
 
   useEffect(() => {
@@ -48,11 +50,23 @@ export default function OfflinePanel() {
         )}
         {catalog.regions.map((r) => {
           const ui = regionUI[r.id] ?? { state: 'none' as const, pct: 0 }
+          const active = r.id === activeId
           return (
-            <div key={r.id}>
-              <div className="region-name">{r.name.split(' - ')[0]}</div>
-              <div className="region-sub">
-                {r.routes.map((rt) => `${rt.name} · ${rt.km} km`).join('  ·  ')}
+            <div key={r.id} className="region-entry">
+              <div className="region-head">
+                <div>
+                  <div className="region-name">{r.name.split(' - ')[0]}</div>
+                  <div className="region-sub">
+                    {r.routes.map((rt) => `${rt.name} · ${rt.km} km`).join('  ·  ')}
+                  </div>
+                </div>
+                {active ? (
+                  <span className="micro current">Viewing</span>
+                ) : (
+                  <button className="btn small quiet" onClick={() => switchRegion(r.id)}>
+                    Open
+                  </button>
+                )}
               </div>
               {ui.state === 'ready' && (
                 <>
